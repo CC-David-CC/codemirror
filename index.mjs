@@ -22,6 +22,13 @@ export function createEditor({parent,text='',wrap=true,path='',dirty=false,onCha
   replaceDocument(value,newPath=currentPath){if(closed)throw Error('Editor is closed');const previousPath=currentPath;currentPath=newPath;try{const next=EditorState.create({doc:value,extensions:config()});view.setState(next);savedDoc=view.state.doc;}catch(error){currentPath=previousPath;throw error;}},
   select(from,to=from){view.dispatch({selection:{anchor:from,head:to},scrollIntoView:true});},selectAll(){view.dispatch({selection:{anchor:0,head:view.state.doc.length},scrollIntoView:true});view.focus();},
   findAll(query,matchCase=false){if(!query)return [];const escaped=query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const cursor=new RegExpCursor(view.state.doc,escaped,{ignoreCase:!matchCase}),out=[];while(!cursor.next().done){if(out.length===50000){out.truncated=true;break;}out.push([cursor.value.from,cursor.value.to]);}return out;},
+  findFrom(query,matchCase,position,direction){
+   if(!query)return null;const doc=view.state.doc,escaped=query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),options={ignoreCase:!matchCase},pos=Math.max(0,Math.min(doc.length,position));
+   const first=(from,to)=>{const cursor=new RegExpCursor(doc,escaped,options,from,to);return cursor.next().done?null:[cursor.value.from,cursor.value.to];};
+   const last=(from,to)=>{for(let end=to;end>from;){const start=Math.max(from,end-10000),cursor=new RegExpCursor(doc,escaped,options,Math.max(0,start-query.length),Math.min(doc.length,end+query.length));let match=null;while(!cursor.next().done){const {from:at,to:finish}=cursor.value;if(at>=start&&at<end)match=[at,finish];if(at>=end)break;}if(match)return match;end=start;}return null;};
+   return direction>0?(first(pos,doc.length)||first(0,doc.length)):(last(0,pos)||last(pos,doc.length));
+  },
+  selectionMatches(query,matchCase=false){if(!query)return false;const {from,to}=view.state.selection.main;if(from===to||to-from>query.length*2+2)return false;const escaped=query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');return new RegExp('^(?:'+escaped+')$',matchCase?'u':'iu').test(view.state.doc.sliceString(from,to));},
   replace(from,to,text){view.dispatch({changes:{from,to,insert:text},selection:{anchor:from+text.length},userEvent:'input.replace',scrollIntoView:true});view.focus();},
   replaceAll(ranges,text){view.dispatch({changes:ranges.map(([from,to])=>({from,to,insert:text})),userEvent:'input.replace.all'});view.focus();},
   undo(){undo(view);view.focus();},redo(){redo(view);view.focus();},indent(){indentMore(view);view.focus();},outdent(){indentLess(view);view.focus();},

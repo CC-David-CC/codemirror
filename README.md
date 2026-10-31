@@ -17,3 +17,6 @@ JupyterLite is a separately bundled application with its own CodeMirror copy
 and JupyterLab editor integration. These are independent runtimes and do not
 share mutable editor state or package objects. Consolidation would require a
 compatible JupyterLab build/extension strategy; duplication is intentional.
+
+For broad literal searches the tool limits its stored match list; its directional
+lookup can still find occurrences beyond that list without storing every match.
