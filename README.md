@@ -3,7 +3,7 @@
 This is a lazily loaded, browser-local system capability. It has no desktop
 window. Applications call `await host.tools.loadCodeMirror()` and then
 `createEditor({parent, text, wrap, path, onChange, onSelection})`. Each call
-creates an independent CodeMirror view, document, selection and undo history;
+creates an independent CodeMirror view, document, selection and undo history, and exposes indexed position and line lookups;
 the consumer calls `destroy()` when its window closes. Loading after the
 consumer has been disposed must not create a view. Text demonstrates the file
 service and lifecycle integration.
