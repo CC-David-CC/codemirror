@@ -6,12 +6,13 @@ import {syntaxHighlighting,defaultHighlightStyle} from '@codemirror/language';
 import {RegExpCursor} from '@codemirror/search';
 import {python} from '@codemirror/lang-python';
 import {javascript} from '@codemirror/lang-javascript';
+import {cpp} from '@codemirror/lang-cpp';
 
 export function mount(){throw Error('CodeMirror is a shared system tool, not a window.');}
 export function createEditor({parent,text='',wrap=true,path='',dirty=false,onChange=()=>{},onSelection=()=>{}}){
  if(!(parent instanceof HTMLElement)||typeof text!=='string'||typeof onChange!=='function'||typeof onSelection!=='function')throw Error('Invalid editor options');
  let view,savedDoc=null,closed=false,readOnly=false,currentWrap=!!wrap,currentPath=path;const wrapping=new Compartment(),editing=new Compartment(),language=new Compartment(),attributes=new Compartment();
- const syntax=p=>/\.py$/i.test(p)?python():/\.(?:js|mjs|cjs|jsx|ts|tsx)$/i.test(p)?javascript({typescript:/\.tsx?$/i.test(p),jsx:/\.[jt]sx$/i.test(p)}):[];
+ const syntax=p=>/\.py$/i.test(p)?python():/\.(?:js|mjs|cjs|jsx|ts|tsx)$/i.test(p)?javascript({typescript:/\.tsx?$/i.test(p),jsx:/\.[jt]sx$/i.test(p)}):/\.(?:c|cc|cpp|cxx|h|hh|hpp|hxx|ino)$/i.test(p)?cpp():[];
  const inputAttributes=()=>EditorView.contentAttributes.of({'aria-label':'Text document','autocapitalize':'off','autocomplete':'off','spellcheck':'false',inputmode:document.documentElement.dataset.keyboardMode==='voice'?'none':'text'});
  const config=()=>[syntaxHighlighting(defaultHighlightStyle),lineNumbers(),highlightActiveLine(),highlightActiveLineGutter(),drawSelection(),history(),keymap.of([...defaultKeymap,...historyKeymap]),wrapping.of(currentWrap?EditorView.lineWrapping:[]),editing.of([EditorState.readOnly.of(readOnly),EditorView.editable.of(!readOnly)]),language.of(syntax(currentPath)),attributes.of(inputAttributes()),EditorView.theme({'&':{height:'100%',font:'inherit'},'.cm-scroller':{overflow:'auto',fontFamily:'inherit'},'.cm-content':{minHeight:'100%'}}),EditorView.updateListener.of(update=>{if(update.docChanged)onChange();if(update.selectionSet||update.docChanged)onSelection();})];
  view=new EditorView({state:EditorState.create({doc:text,extensions:config()}),parent});if(!dirty)savedDoc=view.state.doc;
@@ -32,7 +33,7 @@ export function createEditor({parent,text='',wrap=true,path='',dirty=false,onCha
   replace(from,to,text){view.dispatch({changes:{from,to,insert:text},selection:{anchor:from+text.length},userEvent:'input.replace',scrollIntoView:true});view.focus();},
   replaceAll(ranges,text){view.dispatch({changes:ranges.map(([from,to])=>({from,to,insert:text})),userEvent:'input.replace.all'});view.focus();},
   undo(){undo(view);view.focus();},redo(){redo(view);view.focus();},indent(){indentMore(view);view.focus();},outdent(){indentLess(view);view.focus();},
-  focus(){view.focus();},blur(){view.contentDOM.blur();},setWrap(value){currentWrap=!!value;view.dispatch({effects:wrapping.reconfigure(currentWrap?EditorView.lineWrapping:[])});},
+  focus(){view.focus();},blur(){view.contentDOM.blur();},setPath(value){if(closed)throw Error('Editor is closed');currentPath=value;view.dispatch({effects:language.reconfigure(syntax(currentPath))});},setWrap(value){currentWrap=!!value;view.dispatch({effects:wrapping.reconfigure(currentWrap?EditorView.lineWrapping:[])});},
   setReadOnly(value){readOnly=!!value;view.dispatch({effects:editing.reconfigure([EditorState.readOnly.of(readOnly),EditorView.editable.of(!readOnly)])});},
   destroy(){if(closed)return;closed=true;document.removeEventListener('codi-keyboard-mode',keyboardMode);delete input.codiVoiceCapture;view.destroy();}
  });
