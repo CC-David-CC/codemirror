@@ -7,12 +7,17 @@ import {RegExpCursor} from '@codemirror/search';
 import {python} from '@codemirror/lang-python';
 import {javascript} from '@codemirror/lang-javascript';
 import {cpp} from '@codemirror/lang-cpp';
+import {html} from '@codemirror/lang-html';
+import {css} from '@codemirror/lang-css';
+import {json} from '@codemirror/lang-json';
+import {sql} from '@codemirror/lang-sql';
+import {markdown} from '@codemirror/lang-markdown';
 
 export function mount(){throw Error('CodeMirror is a shared system tool, not a window.');}
 export function createEditor({parent,text='',wrap=true,path='',dirty=false,onChange=()=>{},onSelection=()=>{}}){
  if(!(parent instanceof HTMLElement)||typeof text!=='string'||typeof onChange!=='function'||typeof onSelection!=='function')throw Error('Invalid editor options');
  let view,savedDoc=null,closed=false,readOnly=false,currentWrap=!!wrap,currentPath=path;const wrapping=new Compartment(),editing=new Compartment(),language=new Compartment(),attributes=new Compartment();
- const syntax=p=>/\.py$/i.test(p)?python():/\.(?:js|mjs|cjs|jsx|ts|tsx)$/i.test(p)?javascript({typescript:/\.tsx?$/i.test(p),jsx:/\.[jt]sx$/i.test(p)}):/\.(?:c|cc|cpp|cxx|h|hh|hpp|hxx|ino)$/i.test(p)?cpp():[];
+ const syntax=p=>/\.py$/i.test(p)?python():/\.(?:js|mjs|cjs|jsx|ts|tsx)$/i.test(p)?javascript({typescript:/\.tsx?$/i.test(p),jsx:/\.[jt]sx$/i.test(p)}):/\.(?:c|cc|cpp|cxx|h|hh|hpp|hxx|ino)$/i.test(p)?cpp():/\.html?$/i.test(p)?html():/\.css$/i.test(p)?css():/\.json$/i.test(p)?json():/\.sql$/i.test(p)?sql():/\.(?:md|markdown)$/i.test(p)?markdown():[];
  const inputAttributes=()=>EditorView.contentAttributes.of({'aria-label':'Text document','autocapitalize':'off','autocomplete':'off','spellcheck':'false',inputmode:document.documentElement.dataset.keyboardMode==='voice'?'none':'text'});
  const config=()=>[syntaxHighlighting(defaultHighlightStyle),lineNumbers(),highlightActiveLine(),highlightActiveLineGutter(),drawSelection(),history(),keymap.of([...defaultKeymap,...historyKeymap]),wrapping.of(currentWrap?EditorView.lineWrapping:[]),editing.of([EditorState.readOnly.of(readOnly),EditorView.editable.of(!readOnly)]),language.of(syntax(currentPath)),attributes.of(inputAttributes()),EditorView.theme({'&':{height:'100%',font:'inherit'},'.cm-scroller':{overflow:'auto',fontFamily:'inherit'},'.cm-content':{minHeight:'100%'}}),EditorView.updateListener.of(update=>{if(update.docChanged)onChange();if(update.selectionSet||update.docChanged)onSelection();})];
  view=new EditorView({state:EditorState.create({doc:text,extensions:config()}),parent});if(!dirty)savedDoc=view.state.doc;
