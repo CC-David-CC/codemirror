@@ -2,7 +2,7 @@
 import {EditorState,Compartment} from '@codemirror/state';
 import {EditorView,keymap,lineNumbers,highlightActiveLine,highlightActiveLineGutter,drawSelection} from '@codemirror/view';
 import {defaultKeymap,history,historyKeymap,undo,redo,indentMore,indentLess} from '@codemirror/commands';
-import {syntaxHighlighting,defaultHighlightStyle} from '@codemirror/language';
+import {HighlightStyle,syntaxHighlighting,defaultHighlightStyle} from '@codemirror/language';
 import {RegExpCursor} from '@codemirror/search';
 import {python} from '@codemirror/lang-python';
 import {javascript} from '@codemirror/lang-javascript';
@@ -13,13 +13,27 @@ import {json} from '@codemirror/lang-json';
 import {sql} from '@codemirror/lang-sql';
 import {markdown} from '@codemirror/lang-markdown';
 
+// Retain CodeMirror's light colors and tag precedence. The browser re-resolves
+// these colors when the enclosing view changes its color scheme.
+const darkSyntaxColors = {
+ '#404740': '#a6c4ad', '#708': '#deb5ff', '#219': '#b5bcff', '#164': '#9ce0b2',
+ '#a11': '#ffb6b6', '#e40': '#ffbb91', '#00f': '#a4b8ff', '#30a': '#c7b6ff',
+ '#085': '#85e0b5', '#167': '#8bddf1', '#256': '#a8d9f3', '#00c': '#acbaff',
+ '#940': '#e1bb8e', '#f00': '#ff9696',
+};
+const adaptiveHighlighting = syntaxHighlighting(HighlightStyle.define(defaultHighlightStyle.specs.map(spec => {
+ const dark = darkSyntaxColors[spec.color];
+ return dark ? {...spec, color: `light-dark(${spec.color}, ${dark})`} : spec;
+})));
+
 export function mount(){throw Error('CodeMirror is a shared system tool, not a window.');}
-export function createEditor({parent,text='',wrap=true,path='',dirty=false,onChange=()=>{},onSelection=()=>{}}){
+export function createEditor({parent,text='',wrap=true,path='',dirty=false,followColorScheme=false,onChange=()=>{},onSelection=()=>{}}){
  if(!(parent instanceof HTMLElement)||typeof text!=='string'||typeof onChange!=='function'||typeof onSelection!=='function')throw Error('Invalid editor options');
  let view,savedDoc=null,closed=false,readOnly=false,currentWrap=!!wrap,currentPath=path;const wrapping=new Compartment(),editing=new Compartment(),language=new Compartment(),attributes=new Compartment();
  const syntax=p=>/\.py$/i.test(p)?python():/\.(?:js|mjs|cjs|jsx|ts|tsx)$/i.test(p)?javascript({typescript:/\.tsx?$/i.test(p),jsx:/\.[jt]sx$/i.test(p)}):/\.(?:c|cc|cpp|cxx|h|hh|hpp|hxx|ino)$/i.test(p)?cpp():/\.html?$/i.test(p)?html():/\.css$/i.test(p)?css():/\.json$/i.test(p)?json():/\.sql$/i.test(p)?sql():/\.(?:md|markdown)$/i.test(p)?markdown():[];
  const inputAttributes=()=>EditorView.contentAttributes.of({'aria-label':'Text document','autocapitalize':'off','autocomplete':'off','spellcheck':'false',inputmode:document.documentElement.dataset.keyboardMode==='voice'?'none':'text'});
- const config=()=>[syntaxHighlighting(defaultHighlightStyle),lineNumbers(),highlightActiveLine(),highlightActiveLineGutter(),drawSelection(),history(),keymap.of([...defaultKeymap,...historyKeymap]),wrapping.of(currentWrap?EditorView.lineWrapping:[]),editing.of([EditorState.readOnly.of(readOnly),EditorView.editable.of(!readOnly)]),language.of(syntax(currentPath)),attributes.of(inputAttributes()),EditorView.theme({'&':{height:'100%',font:'inherit'},'.cm-scroller':{overflow:'auto',fontFamily:'inherit'},'.cm-content':{minHeight:'100%'}}),EditorView.updateListener.of(update=>{if(update.docChanged)onChange();if(update.selectionSet||update.docChanged)onSelection();})];
+ const highlighting=followColorScheme&&CSS.supports('color','light-dark(black, white)')?adaptiveHighlighting:syntaxHighlighting(defaultHighlightStyle);
+ const config=()=>[highlighting,lineNumbers(),highlightActiveLine(),highlightActiveLineGutter(),drawSelection(),history(),keymap.of([...defaultKeymap,...historyKeymap]),wrapping.of(currentWrap?EditorView.lineWrapping:[]),editing.of([EditorState.readOnly.of(readOnly),EditorView.editable.of(!readOnly)]),language.of(syntax(currentPath)),attributes.of(inputAttributes()),EditorView.theme({'&':{height:'100%',font:'inherit'},'.cm-scroller':{overflow:'auto',fontFamily:'inherit'},'.cm-content':{minHeight:'100%'}}),EditorView.updateListener.of(update=>{if(update.docChanged)onChange();if(update.selectionSet||update.docChanged)onSelection();})];
  view=new EditorView({state:EditorState.create({doc:text,extensions:config()}),parent});if(!dirty)savedDoc=view.state.doc;
  const keyboardMode=()=>{if(!closed)view.dispatch({effects:attributes.reconfigure(inputAttributes())});};document.addEventListener('codi-keyboard-mode',keyboardMode);
  const input=view.contentDOM;input.codiVoiceCapture=()=>{const doc=view.state.doc,{from,to}=view.state.selection.main;return {element:input,valid:()=>!closed&&!readOnly&&view.state.doc===doc,insert:value=>{if(closed||readOnly)return;view.dispatch({changes:{from,to,insert:value},selection:{anchor:from+value.length},scrollIntoView:true});}};};
